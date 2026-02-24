@@ -43,6 +43,85 @@ final class VolumeTest extends TestCase {
     }
 
 
+    public function testComputeRelativeDestinationPathCreatesParents() : void {
+        $vol = $this->makeVolume();
+        $result = $vol->computeRelativeDestinationPath( '/new/dir/file.txt' );
+        self::assertSame( '/new/dir/file.txt', $result );
+        self::assertDirectoryExists( $vol->path() . '/new/dir' );
+    }
+
+
+    public function testComputeRelativeDestinationPathDirectoryNoFilename() : void {
+        $vol = $this->makeVolume();
+        $vol->writeFile( '/dir/placeholder.txt', 'x' );
+        self::assertSame( Error::PATH_NOT_FOUND, $vol->computeRelativeDestinationPath( '/dir' ) );
+    }
+
+
+    public function testComputeRelativeDestinationPathDirectoryWithFilename() : void {
+        $vol = $this->makeVolume();
+        $vol->writeFile( '/dir/placeholder.txt', 'x' );
+        $result = $vol->computeRelativeDestinationPath( '/dir', '/src/path/file.txt' );
+        self::assertSame( '/dir/file.txt', $result );
+    }
+
+
+    public function testComputeRelativeDestinationPathExistingFile() : void {
+        $vol = $this->makeVolume();
+        $vol->writeFile( '/exists.txt', 'content' );
+        $result = $vol->computeRelativeDestinationPath( '/exists.txt' );
+        self::assertSame( '/exists.txt', $result );
+    }
+
+
+    public function testComputeRelativeDestinationPathNewFileInExistingDir() : void {
+        $vol = $this->makeVolume();
+        $vol->writeFile( '/sub/other.txt', 'x' );
+        $result = $vol->computeRelativeDestinationPath( '/sub/newfile.txt' );
+        self::assertSame( '/sub/newfile.txt', $result );
+    }
+
+
+    public function testComputeRelativeDestinationPathNewFileInRoot() : void {
+        $vol = $this->makeVolume();
+        $result = $vol->computeRelativeDestinationPath( '/newfile.txt' );
+        self::assertSame( '/newfile.txt', $result );
+    }
+
+
+    public function testComputeRelativeDestinationPathNoCreateFile() : void {
+        $vol = $this->makeVolume();
+        $result = $vol->computeRelativeDestinationPath( '/nonexistent.txt',
+            i_bAllowCreateFile: false );
+        self::assertSame( Error::PATH_NOT_FOUND, $result );
+    }
+
+
+    public function testComputeRelativeDestinationPathNoCreateFileExisting() : void {
+        $vol = $this->makeVolume();
+        $vol->writeFile( '/exists.txt', 'x' );
+        $result = $vol->computeRelativeDestinationPath( '/exists.txt',
+            i_bAllowCreateFile: false );
+        self::assertSame( '/exists.txt', $result );
+    }
+
+
+    public function testComputeRelativeDestinationPathNoCreateParents() : void {
+        $vol = $this->makeVolume();
+        $result = $vol->computeRelativeDestinationPath( '/no/such/dir/file.txt',
+            i_bAllowCreateParents: false );
+        self::assertSame( Error::PATH_NOT_FOUND, $result );
+    }
+
+
+    public function testComputeRelativeDestinationPathOnDestroyedVolume() : void {
+        $vol = $this->makeVolume();
+        $vol->destroy();
+        self::assertSame( Error::DIRECTORY_IS_CLOSED,
+            $vol->computeRelativeDestinationPath( '/file.txt' ) );
+    }
+
+
     public function testConstructorCreatesDirectory() : void {
         $stBase = $this->basePath();
         $vol = new Volume( $stBase, 'new-vol' );
