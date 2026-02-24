@@ -28,7 +28,7 @@ final class Helper {
             return Error::PATH_IS_DIRECTORY;
         }
         if ( is_file( $i_stPath ) ) {
-            return Error::PATH_IS_DIRECTORY;
+            return Error::PATH_IS_FILE;
         }
         return Error::PATH_IS_WEIRD;
     }

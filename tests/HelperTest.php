@@ -64,6 +64,35 @@ class HelperTest extends TestCase {
     }
 
 
+    public function testExistingIsErrorForDirectory() : void {
+        $stDir = $this->tempDir();
+        self::assertSame( Error::PATH_IS_DIRECTORY, Helper::existingIsError( $stDir ) );
+    }
+
+
+    public function testExistingIsErrorForFifo() : void {
+        $stDir = $this->tempDir();
+        $stFifo = $stDir . '/test.fifo';
+        posix_mkfifo( $stFifo, 0600 );
+        self::assertSame( Error::PATH_IS_WEIRD, Helper::existingIsError( $stFifo ) );
+    }
+
+
+    public function testExistingIsErrorForFile() : void {
+        $stDir = $this->tempDir();
+        $stFile = $stDir . '/exists.txt';
+        file_put_contents( $stFile, 'x' );
+        self::assertSame( Error::PATH_IS_FILE, Helper::existingIsError( $stFile ) );
+    }
+
+
+    public function testExistingIsErrorForNonexistent() : void {
+        $stDir = $this->tempDir();
+        $stPath = $stDir . '/nonexistent.txt';
+        self::assertSame( $stPath, Helper::existingIsError( $stPath ) );
+    }
+
+
     public function testFileFromPath() : void {
         self::assertSame( 'file.txt', Helper::fileFromPath( '/a/b/file.txt' ) );
     }
