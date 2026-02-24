@@ -24,6 +24,10 @@ final class VolumeTest extends TestCase {
 
 
     private static function recursiveDelete( string $i_stPath ) : void {
+        if ( is_link( $i_stPath ) ) {
+            unlink( $i_stPath );
+            return;
+        }
         if ( ! file_exists( $i_stPath ) ) {
             return;
         }
