@@ -24,6 +24,9 @@ final class Helper {
         if ( ! file_exists( $i_stPath ) ) {
             return $i_stPath;
         }
+        if ( is_link( $i_stPath ) ) {
+            return Error::PATH_IS_WEIRD;
+        }
         if ( is_dir( $i_stPath ) ) {
             return Error::PATH_IS_DIRECTORY;
         }
@@ -80,6 +83,16 @@ final class Helper {
     }
 
 
+    public static function isPathDir( string $i_stPath ) : bool {
+        return is_dir( $i_stPath ) && ! is_link( $i_stPath );
+    }
+
+
+    public static function isPathFile( string $i_stPath ) : bool {
+        return is_file( $i_stPath ) && ! is_link( $i_stPath );
+    }
+
+
     public static function isPathSafe( string $i_stPath ) : bool {
         if ( ! str_starts_with( $i_stPath, '/' ) ) {
             return false;
@@ -102,7 +115,16 @@ final class Helper {
 
 
     public static function isPathWeird( string $i_stPath ) : bool {
-        return file_exists( $i_stPath ) && ! is_dir( $i_stPath ) && ! is_file( $i_stPath );
+        if ( ! file_exists( $i_stPath ) ) {
+            return false;
+        }
+        if ( is_link( $i_stPath ) ) {
+            return true;
+        }
+        if ( is_dir( $i_stPath ) || is_file( $i_stPath ) ) {
+            return false;
+        }
+        return true;
     }
 
 
@@ -232,6 +254,59 @@ final class Helper {
             $rOut[] = $stComponent;
         }
         return '/' . implode( '/', $rOut );
+    }
+
+
+    public static function validatePath( string $i_stPath, bool $i_bMustExist = true ) : string|Error {
+        if ( ! str_starts_with( $i_stPath, '/' ) ) {
+            return Error::PATH_INVALID;
+        }
+        $rOut = [];
+        $stPath = '/';
+        $bPathIsWeird = false;
+        $bPathIsFile = false;
+        $bPathExists = true;
+        foreach ( explode( '/', $i_stPath ) as $stComponent ) {
+            if ( $bPathIsWeird || $bPathIsFile ) {
+                return Error::PATH_PARENT_NOT_DIRECTORY;
+            }
+            if ( '.' === $stComponent || '' === $stComponent ) {
+                continue;
+            }
+            if ( '..' === $stComponent ) {
+                array_pop( $rOut );
+                $stPath = '/' . implode( '/', $rOut );
+                continue;
+            }
+            $stPath = self::mergePath( $stPath, $stComponent );
+            $rOut[] = $stComponent;
+            if ( ! file_exists( $stPath ) ) {
+                if ( ! $i_bMustExist ) {
+                    return Error::PATH_NOT_FOUND;
+                }
+                $bPathExists = false;
+                continue;
+            }
+            if ( is_link( $stPath ) ) {
+                $bPathIsWeird = true;
+                continue;
+            }
+            if ( is_file( $stPath ) ) {
+                $bPathIsFile = true;
+                continue;
+            }
+            if ( ! is_dir( $stPath ) ) {
+                $bPathIsWeird = true;
+                continue;
+            }
+        }
+        if ( $bPathIsWeird ) {
+            return Error::PATH_IS_WEIRD;
+        }
+        if ( ! $bPathExists && $i_bMustExist ) {
+            return Error::PATH_NOT_FOUND;
+        }
+        return $stPath;
     }
 
 
