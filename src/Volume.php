@@ -241,17 +241,12 @@ class Volume {
      * @return Error|null
      */
     public function rename( string $i_stPathFrom, string $i_stPathTo ) : ?Error {
-        $stPathFrom = $this->normalizePathExists( $i_stPathFrom );
+        $stPathFrom = $this->normalizePathExistsFile( $i_stPathFrom );
         if ( ! is_string( $stPathFrom ) ) {
             return $stPathFrom;
         }
 
-        $stPathToParent = $this->normalizePathParentExists( $i_stPathTo, true );
-        if ( ! is_string( $stPathToParent ) ) {
-            return $stPathToParent;
-        }
-
-        $stPathTo = $this->normalizePath( $i_stPathTo );
+        $stPathTo = $this->computeDestinationPath( $i_stPathTo, $i_stPathFrom );
         if ( ! is_string( $stPathTo ) ) {
             return $stPathTo;
         }
@@ -655,7 +650,6 @@ class Volume {
                 if ( $i_bMustExist ) {
                     return Error::PATH_NOT_FOUND;
                 }
-                $stPath = $i_stPath;
                 break;
             }
             if ( Helper::isPathFile( $stPath ) ) {
