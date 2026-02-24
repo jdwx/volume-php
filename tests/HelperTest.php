@@ -24,6 +24,10 @@ class HelperTest extends TestCase {
 
 
     private static function recursiveDelete( string $i_stPath ) : void {
+        if ( is_link( $i_stPath ) ) {
+            unlink( $i_stPath );
+            return;
+        }
         if ( ! file_exists( $i_stPath ) ) {
             return;
         }
@@ -90,6 +94,35 @@ class HelperTest extends TestCase {
         $stDir = $this->tempDir();
         $stPath = $stDir . '/nonexistent.txt';
         self::assertSame( $stPath, Helper::existingIsError( $stPath ) );
+    }
+
+
+    public function testExistingIsErrorForDanglingSymlink() : void {
+        $stDir = $this->tempDir();
+        $stLink = $stDir . '/dangling';
+        symlink( $stDir . '/nonexistent-target', $stLink );
+        # Dangling symlinks fail file_exists(), so they are treated as nonexistent.
+        self::assertSame( $stLink, Helper::existingIsError( $stLink ) );
+    }
+
+
+    public function testExistingIsErrorForSymlinkToDirectory() : void {
+        $stDir = $this->tempDir();
+        $stTarget = $stDir . '/target-dir';
+        mkdir( $stTarget );
+        $stLink = $stDir . '/link';
+        symlink( $stTarget, $stLink );
+        self::assertSame( Error::PATH_IS_WEIRD, Helper::existingIsError( $stLink ) );
+    }
+
+
+    public function testExistingIsErrorForSymlinkToFile() : void {
+        $stDir = $this->tempDir();
+        $stTarget = $stDir . '/target.txt';
+        file_put_contents( $stTarget, 'x' );
+        $stLink = $stDir . '/link';
+        symlink( $stTarget, $stLink );
+        self::assertSame( Error::PATH_IS_WEIRD, Helper::existingIsError( $stLink ) );
     }
 
 
@@ -214,6 +247,100 @@ class HelperTest extends TestCase {
     }
 
 
+    public function testIsPathDirForDirectory() : void {
+        $stDir = $this->tempDir();
+        self::assertTrue( Helper::isPathDir( $stDir ) );
+    }
+
+
+    public function testIsPathDirForFile() : void {
+        $stDir = $this->tempDir();
+        $stFile = $stDir . '/file.txt';
+        file_put_contents( $stFile, 'x' );
+        self::assertFalse( Helper::isPathDir( $stFile ) );
+    }
+
+
+    public function testIsPathDirForFifo() : void {
+        $stDir = $this->tempDir();
+        $stFifo = $stDir . '/test.fifo';
+        posix_mkfifo( $stFifo, 0600 );
+        self::assertFalse( Helper::isPathDir( $stFifo ) );
+    }
+
+
+    public function testIsPathDirForNonexistent() : void {
+        self::assertFalse( Helper::isPathDir( '/nonexistent/path' ) );
+    }
+
+
+    public function testIsPathDirForSymlinkToDirectory() : void {
+        $stDir = $this->tempDir();
+        $stTarget = $stDir . '/target-dir';
+        mkdir( $stTarget );
+        $stLink = $stDir . '/link';
+        symlink( $stTarget, $stLink );
+        self::assertFalse( Helper::isPathDir( $stLink ) );
+    }
+
+
+    public function testIsPathDirForSymlinkToFile() : void {
+        $stDir = $this->tempDir();
+        $stTarget = $stDir . '/target.txt';
+        file_put_contents( $stTarget, 'x' );
+        $stLink = $stDir . '/link';
+        symlink( $stTarget, $stLink );
+        self::assertFalse( Helper::isPathDir( $stLink ) );
+    }
+
+
+    public function testIsPathFileForDirectory() : void {
+        $stDir = $this->tempDir();
+        self::assertFalse( Helper::isPathFile( $stDir ) );
+    }
+
+
+    public function testIsPathFileForFifo() : void {
+        $stDir = $this->tempDir();
+        $stFifo = $stDir . '/test.fifo';
+        posix_mkfifo( $stFifo, 0600 );
+        self::assertFalse( Helper::isPathFile( $stFifo ) );
+    }
+
+
+    public function testIsPathFileForFile() : void {
+        $stDir = $this->tempDir();
+        $stFile = $stDir . '/file.txt';
+        file_put_contents( $stFile, 'x' );
+        self::assertTrue( Helper::isPathFile( $stFile ) );
+    }
+
+
+    public function testIsPathFileForNonexistent() : void {
+        self::assertFalse( Helper::isPathFile( '/nonexistent/path' ) );
+    }
+
+
+    public function testIsPathFileForSymlinkToDirectory() : void {
+        $stDir = $this->tempDir();
+        $stTarget = $stDir . '/target-dir';
+        mkdir( $stTarget );
+        $stLink = $stDir . '/link';
+        symlink( $stTarget, $stLink );
+        self::assertFalse( Helper::isPathFile( $stLink ) );
+    }
+
+
+    public function testIsPathFileForSymlinkToFile() : void {
+        $stDir = $this->tempDir();
+        $stTarget = $stDir . '/target.txt';
+        file_put_contents( $stTarget, 'x' );
+        $stLink = $stDir . '/link';
+        symlink( $stTarget, $stLink );
+        self::assertFalse( Helper::isPathFile( $stLink ) );
+    }
+
+
     public function testIsPathSafeAllowsDots() : void {
         self::assertTrue( Helper::isPathSafe( '/file.tar.gz' ) );
     }
@@ -286,6 +413,53 @@ class HelperTest extends TestCase {
 
     public function testIsPathSafeRoot() : void {
         self::assertTrue( Helper::isPathSafe( '/' ) );
+    }
+
+
+    public function testIsPathWeirdForDirectory() : void {
+        $stDir = $this->tempDir();
+        self::assertFalse( Helper::isPathWeird( $stDir ) );
+    }
+
+
+    public function testIsPathWeirdForFifo() : void {
+        $stDir = $this->tempDir();
+        $stFifo = $stDir . '/test.fifo';
+        posix_mkfifo( $stFifo, 0600 );
+        self::assertTrue( Helper::isPathWeird( $stFifo ) );
+    }
+
+
+    public function testIsPathWeirdForFile() : void {
+        $stDir = $this->tempDir();
+        $stFile = $stDir . '/file.txt';
+        file_put_contents( $stFile, 'x' );
+        self::assertFalse( Helper::isPathWeird( $stFile ) );
+    }
+
+
+    public function testIsPathWeirdForNonexistent() : void {
+        self::assertFalse( Helper::isPathWeird( '/nonexistent/path' ) );
+    }
+
+
+    public function testIsPathWeirdForSymlinkToDirectory() : void {
+        $stDir = $this->tempDir();
+        $stTarget = $stDir . '/target-dir';
+        mkdir( $stTarget );
+        $stLink = $stDir . '/link';
+        symlink( $stTarget, $stLink );
+        self::assertTrue( Helper::isPathWeird( $stLink ) );
+    }
+
+
+    public function testIsPathWeirdForSymlinkToFile() : void {
+        $stDir = $this->tempDir();
+        $stTarget = $stDir . '/target.txt';
+        file_put_contents( $stTarget, 'x' );
+        $stLink = $stDir . '/link';
+        symlink( $stTarget, $stLink );
+        self::assertTrue( Helper::isPathWeird( $stLink ) );
     }
 
 
@@ -551,6 +725,108 @@ class HelperTest extends TestCase {
     }
 
 
+    public function testValidatePathCollapsesMultipleSlashes() : void {
+        $stDir = $this->tempDirResolved();
+        mkdir( $stDir . '/a/b', 0700, true );
+        self::assertSame( $stDir . '/a/b', Helper::validatePath( $stDir . '///a//b' ) );
+    }
+
+
+    public function testValidatePathDoubleDotFromRoot() : void {
+        self::assertSame( '/', Helper::validatePath( '/..' ) );
+    }
+
+
+    public function testValidatePathExistingDirectory() : void {
+        $stDir = $this->tempDirResolved();
+        self::assertSame( $stDir, Helper::validatePath( $stDir ) );
+    }
+
+
+    public function testValidatePathExistingFile() : void {
+        $stDir = $this->tempDirResolved();
+        $stFile = $stDir . '/file.txt';
+        file_put_contents( $stFile, 'x' );
+        self::assertSame( $stFile, Helper::validatePath( $stFile ) );
+    }
+
+
+    public function testValidatePathNonexistentMustExist() : void {
+        $stDir = $this->tempDirResolved();
+        self::assertSame( Error::PATH_NOT_FOUND, Helper::validatePath( $stDir . '/nonexistent' ) );
+    }
+
+
+    public function testValidatePathNonexistentNotRequired() : void {
+        $stDir = $this->tempDirResolved();
+        $stPath = $stDir . '/nonexistent';
+        self::assertSame( $stPath, Helper::validatePath( $stPath, false ) );
+    }
+
+
+    public function testValidatePathRejectsRelative() : void {
+        self::assertSame( Error::PATH_INVALID, Helper::validatePath( 'a/b/c' ) );
+    }
+
+
+    public function testValidatePathResolvesDot() : void {
+        $stDir = $this->tempDirResolved();
+        mkdir( $stDir . '/a', 0700 );
+        self::assertSame( $stDir . '/a', Helper::validatePath( $stDir . '/./a' ) );
+    }
+
+
+    public function testValidatePathResolvesDoubleDot() : void {
+        $stDir = $this->tempDirResolved();
+        mkdir( $stDir . '/a/b', 0700, true );
+        self::assertSame( $stDir . '/a', Helper::validatePath( $stDir . '/a/b/..' ) );
+    }
+
+
+    public function testValidatePathRoot() : void {
+        self::assertSame( '/', Helper::validatePath( '/' ) );
+    }
+
+
+    public function testValidatePathThroughFile() : void {
+        $stDir = $this->tempDirResolved();
+        $stFile = $stDir . '/file.txt';
+        file_put_contents( $stFile, 'x' );
+        self::assertSame( Error::PATH_PARENT_NOT_DIRECTORY, Helper::validatePath( $stFile . '/child' ) );
+    }
+
+
+    public function testValidatePathThroughSymlink() : void {
+        $stDir = $this->tempDirResolved();
+        $stTarget = $stDir . '/target-dir';
+        mkdir( $stTarget );
+        mkdir( $stTarget . '/child' );
+        $stLink = $stDir . '/link';
+        symlink( $stTarget, $stLink );
+        # Traversing through a symlink returns PATH_PARENT_NOT_DIRECTORY because
+        # the symlink component is marked as weird, and subsequent components error.
+        self::assertSame( Error::PATH_PARENT_NOT_DIRECTORY, Helper::validatePath( $stLink . '/child' ) );
+    }
+
+
+    public function testValidatePathWithFifo() : void {
+        $stDir = $this->tempDirResolved();
+        $stFifo = $stDir . '/test.fifo';
+        posix_mkfifo( $stFifo, 0600 );
+        self::assertSame( Error::PATH_IS_WEIRD, Helper::validatePath( $stFifo ) );
+    }
+
+
+    public function testValidatePathWithSymlinkAtEnd() : void {
+        $stDir = $this->tempDirResolved();
+        $stTarget = $stDir . '/target.txt';
+        file_put_contents( $stTarget, 'x' );
+        $stLink = $stDir . '/link';
+        symlink( $stTarget, $stLink );
+        self::assertSame( Error::PATH_IS_WEIRD, Helper::validatePath( $stLink ) );
+    }
+
+
     protected function tearDown() : void {
         foreach ( $this->rCleanupPaths as $stPath ) {
             self::recursiveDelete( $stPath );
@@ -560,6 +836,21 @@ class HelperTest extends TestCase {
 
     private function tempDir() : string {
         $stPath = sys_get_temp_dir() . '/jdwx-helper-test-' . uniqid( more_entropy: true );
+        mkdir( $stPath, 0700, true );
+        $this->rCleanupPaths[] = $stPath;
+        return $stPath;
+    }
+
+
+    /**
+     * Create a temp dir with symlinks resolved in the base path.
+     * On macOS, sys_get_temp_dir() returns a path through /var which
+     * is a symlink to /private/var. validatePath() rejects symlinks,
+     * so tests need a base path free of symlinks.
+     */
+    private function tempDirResolved() : string {
+        $stBase = realpath( sys_get_temp_dir() );
+        $stPath = $stBase . '/jdwx-helper-test-' . uniqid( more_entropy: true );
         mkdir( $stPath, 0700, true );
         $this->rCleanupPaths[] = $stPath;
         return $stPath;
