@@ -22,6 +22,10 @@
   "scripts": {
     "phan": "PHAN_ALLOW_XDEBUG=1 php -d xdebug.mode=off vendor/bin/phan --no-progress-bar -S --analyze-twice",
     "phpstan": "php -d xdebug.so vendor/bin/phpstan --no-progress",
-    "test": "vendor/bin/phpunit tests"
+    "test": "vendor/bin/phpunit tests",
+    "coverage": [
+      "php -d xdebug.mode=coverage vendor/bin/phpunit --coverage-clover /tmp/jdwx-coverage.xml --colors=never",
+      "php -r '$xml=simplexml_load_file(\"/tmp/jdwx-coverage.xml\");foreach($xml->project->package->file as $f){$p=basename((string)$f[\"name\"]);$u=[];foreach($f->line as $l){if((string)$l[\"type\"]===\"stmt\"&&(int)$l[\"count\"]===0)$u[]=(int)$l[\"num\"];}if($u){$r=[];$s=$u[0];$e=$s;for($i=1;$i<count($u);$i++){if($u[$i]===$e+1)$e=$u[$i];else{$r[]=$s===$e?\"$s\":\"$s-$e\";$s=$e=$u[$i];}}$r[]=$s===$e?\"$s\":\"$s-$e\";echo\"$p: \".implode(\", \",$r).\"\\n\";}}unlink(\"/tmp/jdwx-coverage.xml\");'"
+    ]
   }
 }
