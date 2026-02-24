@@ -64,7 +64,7 @@ class Volume {
         if ( ! is_string( $stPath ) ) {
             return $stPath;
         }
-        return $this->relativePath( $stPath );
+        return substr( $stPath, strlen( $this->stPath ) );
     }
 
 
@@ -355,7 +355,7 @@ class Volume {
             return $stRelativePath;
         }
 
-        $stRelativePath = $this->validateRelativePath( $stRelativePath );
+        $stRelativePath = $this->validateRelativePath( $stRelativePath, false );
         if ( $stRelativePath instanceof Error ) {
             return $stRelativePath;
         }
@@ -608,8 +608,7 @@ class Volume {
     }
 
 
-    private
-    function relativePath( string $i_stPath ) : string|Error {
+    private function relativePath( string $i_stPath ) : string|Error {
         $stPath = $this->normalizePath( $i_stPath );
         if ( ! is_string( $stPath ) ) {
             return $stPath;
