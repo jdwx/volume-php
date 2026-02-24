@@ -281,7 +281,7 @@ final class Helper {
             $stPath = self::mergePath( $stPath, $stComponent );
             $rOut[] = $stComponent;
             if ( ! file_exists( $stPath ) ) {
-                if ( ! $i_bMustExist ) {
+                if ( $i_bMustExist ) {
                     return Error::PATH_NOT_FOUND;
                 }
                 $bPathExists = false;
