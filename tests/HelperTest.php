@@ -68,6 +68,53 @@ class HelperTest extends TestCase {
     }
 
 
+    public function testErrorByTypeForDirectory() : void {
+        $stDir = $this->tempDir();
+        self::assertSame( Error::PATH_IS_DIRECTORY, Helper::errorByType( $stDir ) );
+    }
+
+
+    public function testErrorByTypeForFifo() : void {
+        $stDir = $this->tempDir();
+        $stFifo = $stDir . '/test.fifo';
+        posix_mkfifo( $stFifo, 0600 );
+        self::assertSame( Error::PATH_IS_WEIRD, Helper::errorByType( $stFifo ) );
+    }
+
+
+    public function testErrorByTypeForFile() : void {
+        $stDir = $this->tempDir();
+        $stFile = $stDir . '/file.txt';
+        file_put_contents( $stFile, 'x' );
+        self::assertSame( Error::PATH_IS_FILE, Helper::errorByType( $stFile ) );
+    }
+
+
+    public function testErrorByTypeForNonexistent() : void {
+        self::assertSame( Error::PATH_NOT_FOUND, Helper::errorByType( '/nonexistent/path' ) );
+    }
+
+
+    public function testErrorByTypeForSymlinkToDirectory() : void {
+        $stDir = $this->tempDir();
+        $stTarget = $stDir . '/target-dir';
+        mkdir( $stTarget );
+        $stLink = $stDir . '/link';
+        symlink( $stTarget, $stLink );
+        self::assertSame( Error::PATH_IS_WEIRD, Helper::errorByType( $stLink ) );
+    }
+
+
+    public function testErrorByTypeForSymlinkToFile() : void {
+        $stDir = $this->tempDir();
+        $stTarget = $stDir . '/target.txt';
+        file_put_contents( $stTarget, 'x' );
+        $stLink = $stDir . '/link';
+        symlink( $stTarget, $stLink );
+        self::assertSame( Error::PATH_IS_WEIRD, Helper::errorByType( $stLink ) );
+    }
+
+
     public function testExistingIsErrorForDirectory() : void {
         $stDir = $this->tempDir();
         self::assertSame( Error::PATH_IS_DIRECTORY, Helper::existingIsError( $stDir ) );
