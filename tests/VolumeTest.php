@@ -293,6 +293,54 @@ final class VolumeTest extends TestCase {
     }
 
 
+    public function testMkdir() : void {
+        $vol = $this->makeVolume();
+        self::assertNull( $vol->mkdir( '/newdir' ) );
+        self::assertDirectoryExists( $vol->path() . '/newdir' );
+    }
+
+
+    public function testMkdirCreatesParents() : void {
+        $vol = $this->makeVolume();
+        self::assertNull( $vol->mkdir( '/a/b/c' ) );
+        self::assertDirectoryExists( $vol->path() . '/a/b/c' );
+    }
+
+
+    public function testMkdirExistingDirectory() : void {
+        $vol = $this->makeVolume();
+        $vol->writeFile( '/dir/file.txt', 'x' );
+        self::assertNull( $vol->mkdir( '/dir' ) );
+    }
+
+
+    public function testMkdirExistingFile() : void {
+        $vol = $this->makeVolume();
+        $vol->writeFile( '/file.txt', 'x' );
+        self::assertSame( Error::PATH_IS_FILE, $vol->mkdir( '/file.txt' ) );
+    }
+
+
+    public function testMkdirExistingFifo() : void {
+        $vol = $this->makeVolume();
+        posix_mkfifo( $vol->path() . '/weird', 0600 );
+        self::assertSame( Error::PATH_IS_WEIRD, $vol->mkdir( '/weird' ) );
+    }
+
+
+    public function testMkdirInvalidPath() : void {
+        $vol = $this->makeVolume();
+        self::assertSame( Error::PATH_INVALID, $vol->mkdir( '/dir name' ) );
+    }
+
+
+    public function testMkdirOnDestroyedVolume() : void {
+        $vol = $this->makeVolume();
+        $vol->destroy();
+        self::assertSame( Error::DIRECTORY_IS_CLOSED, $vol->mkdir( '/dir' ) );
+    }
+
+
     public function testListDirectoriesHaveTrailingSlash() : void {
         $vol = $this->makeVolume();
         $vol->writeFile( '/sub/file.txt', 'x' );

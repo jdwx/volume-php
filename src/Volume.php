@@ -320,10 +320,7 @@ class Volume {
             OK::file_put_contents( $stPath, $i_stContents );
             return null;
         }
-        if ( Helper::isPathDir( $stPath ) ) {
-            return Error::PATH_IS_DIRECTORY;
-        }
-        return Error::PATH_IS_WEIRD;
+        return Helper::errorByType( $stPath );
     }
 
 
@@ -426,7 +423,7 @@ class Volume {
             return $stPath;
         }
 
-        return Helper::isPathDir( $stPath ) ? Error::PATH_IS_DIRECTORY : Error::PATH_IS_WEIRD;
+        return Helper::errorByType( $stPath );
     }
 
 
@@ -482,10 +479,7 @@ class Volume {
         if ( Helper::isPathFile( $stPath ) ) {
             return $stPath;
         }
-        if ( Helper::isPathDir( $stPath ) ) {
-            return Error::PATH_IS_DIRECTORY;
-        }
-        return Error::PATH_IS_WEIRD;
+        return Helper::errorByType( $stPath );
     }
 
 
