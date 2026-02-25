@@ -20,10 +20,7 @@ final class Helper {
     }
 
 
-    public static function existingIsError( string $i_stPath ) : string|Error {
-        if ( ! file_exists( $i_stPath ) ) {
-            return $i_stPath;
-        }
+    public static function errorByType( string $i_stPath ) : Error {
         if ( is_link( $i_stPath ) ) {
             return Error::PATH_IS_WEIRD;
         }
@@ -33,7 +30,18 @@ final class Helper {
         if ( is_file( $i_stPath ) ) {
             return Error::PATH_IS_FILE;
         }
+        if ( ! file_exists( $i_stPath ) ) {
+            return Error::PATH_NOT_FOUND;
+        }
         return Error::PATH_IS_WEIRD;
+    }
+
+
+    public static function existingIsError( string $i_stPath ) : string|Error {
+        if ( ! file_exists( $i_stPath ) ) {
+            return $i_stPath;
+        }
+        return self::errorByType( $i_stPath );
     }
 
 

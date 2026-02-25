@@ -104,8 +104,7 @@ class Volume {
      *
      * @return bool True if the volume exists, false if it has been removed.
      */
-    public
-    function exists() : bool {
+    public function exists() : bool {
         return ! $this->bRemoved;
     }
 
@@ -161,8 +160,7 @@ class Volume {
      *
      * @return list<string>|Error A list of matching files or an error
      */
-    public
-    function list( string $i_stPath ) : array|Error {
+    public function list( string $i_stPath ) : array|Error {
 
         if ( ! Helper::containsWildcard( $i_stPath ) ) {
             return $this->listPlain( $i_stPath );
@@ -181,6 +179,22 @@ class Volume {
         }
         assert( is_array( $rGlob ) );
         return $this->toRelativePaths( $rGlob );
+    }
+
+
+    public function mkdir( string $i_stPath ) : ?Error {
+        $stPath = $this->normalizePath( $i_stPath );
+        if ( ! is_string( $stPath ) ) {
+            return $stPath;
+        }
+        if ( file_exists( $stPath ) ) {
+            if ( Helper::isPathDir( $stPath ) ) {
+                return null;
+            }
+            return Helper::errorByType( $stPath );
+        }
+        OK::mkdir( $stPath, $this->uMask, true );
+        return null;
     }
 
 
