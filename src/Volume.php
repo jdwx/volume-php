@@ -110,6 +110,37 @@ class Volume {
     }
 
 
+    public function isPathValid( string $i_stPath, bool $i_bMustExist = true ) : string|Error {
+        $stPath = $this->stPath;
+        $bFoundFile = false;
+        $bFoundWeird = false;
+        foreach ( explode( '/', trim( $i_stPath, '/' ) ) as $stComponent ) {
+            if ( $bFoundFile || $bFoundWeird ) {
+                return Error::PATH_PARENT_NOT_DIRECTORY;
+            }
+            $stPath = Helper::mergePath( $stPath, $stComponent );
+            if ( ! file_exists( $stPath ) ) {
+                if ( $i_bMustExist ) {
+                    return Error::PATH_NOT_FOUND;
+                }
+                break;
+            }
+            if ( Helper::isPathFile( $stPath ) ) {
+                $bFoundFile = true;
+                continue;
+            }
+            if ( ! Helper::isPathDir( $stPath ) ) {
+                $bFoundWeird = true;
+                // continue; # Implicit.
+            }
+        }
+        if ( $bFoundWeird ) {
+            return Error::PATH_IS_WEIRD;
+        }
+        return $i_stPath;
+    }
+
+
     /**
      * List the contents of a path, optionally with wildcard matching.
      *
@@ -148,9 +179,7 @@ class Volume {
         } else {
             $rGlob = Helper::globPattern( $stBasePath, $stPattern );
         }
-        if ( ! is_array( $rGlob ) ) {
-            return $rGlob;
-        }
+        assert( is_array( $rGlob ) );
         return $this->toRelativePaths( $rGlob );
     }
 
@@ -222,9 +251,7 @@ class Volume {
 
         # If you remove the top level, we remove everything under it instead.
         $rGlob = Helper::globWild( $stPath );
-        if ( ! is_array( $rGlob ) ) {
-            return $rGlob;
-        }
+        assert( is_array( $rGlob ) );
         foreach ( $rGlob as $stComponent ) {
             Helper::recursiveRemove( $stComponent );
         }
@@ -249,9 +276,6 @@ class Volume {
         $stPathTo = $this->computeDestinationPath( $i_stPathTo, $i_stPathFrom );
         if ( ! is_string( $stPathTo ) ) {
             return $stPathTo;
-        }
-        if ( Helper::isPathDir( $stPathTo ) ) {
-            $stPathTo = Helper::mergePath( $stPathTo, Helper::fileFromPath( $stPathFrom ) );
         }
         if ( file_exists( $stPathTo ) ) {
             return Error::PATH_EXISTS;
@@ -350,7 +374,7 @@ class Volume {
             return $stRelativePath;
         }
 
-        $stRelativePath = $this->validateRelativePath( $stRelativePath, false );
+        $stRelativePath = $this->isPathValid( $stRelativePath, false );
         if ( $stRelativePath instanceof Error ) {
             return $stRelativePath;
         }
@@ -372,10 +396,6 @@ class Volume {
 
         if ( Helper::isPathFile( $stPath ) ) {
             return $stPath;
-        }
-
-        if ( ! Helper::isPathDir( $stPath ) ) {
-            return Error::PATH_IS_WEIRD;
         }
 
         if ( ! is_string( $i_nstFileName ) ) {
@@ -465,9 +485,6 @@ class Volume {
             return $stPath;
         }
 
-        if ( ! str_starts_with( $stPath, '/' ) ) {
-            return Error::PATH_INVALID;
-        }
         $stPath = Helper::parentFromPath( $stPath );
         return rtrim( Helper::mergePath( $this->stPath, $stPath ), '/' );
     }
@@ -634,37 +651,6 @@ class Volume {
             $rOut[] = substr( $stMatch, $uSkip );
         }
         return $rOut;
-    }
-
-
-    private function validateRelativePath( string $i_stPath, bool $i_bMustExist = true ) : string|Error {
-        $stPath = $this->stPath;
-        $bFoundFile = false;
-        $bFoundWeird = false;
-        foreach ( explode( '/', trim( $i_stPath, '/' ) ) as $stComponent ) {
-            if ( $bFoundFile || $bFoundWeird ) {
-                return Error::PATH_PARENT_NOT_DIRECTORY;
-            }
-            $stPath = Helper::mergePath( $stPath, $stComponent );
-            if ( ! file_exists( $stPath ) ) {
-                if ( $i_bMustExist ) {
-                    return Error::PATH_NOT_FOUND;
-                }
-                break;
-            }
-            if ( Helper::isPathFile( $stPath ) ) {
-                $bFoundFile = true;
-                continue;
-            }
-            if ( ! Helper::isPathDir( $stPath ) ) {
-                $bFoundWeird = true;
-                // continue; # Implicit.
-            }
-        }
-        if ( $bFoundWeird ) {
-            return Error::PATH_IS_WEIRD;
-        }
-        return $i_stPath;
     }
 
 

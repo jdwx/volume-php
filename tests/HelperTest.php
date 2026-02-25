@@ -131,6 +131,11 @@ class HelperTest extends TestCase {
     }
 
 
+    public function testFileFromPathRootSlash() : void {
+        self::assertSame( '/', Helper::fileFromPath( '/' ) );
+    }
+
+
     public function testFileFromPathMultipleTrailingSlashes() : void {
         self::assertSame( 'dir', Helper::fileFromPath( '/a/dir///' ) );
     }
@@ -239,6 +244,14 @@ class HelperTest extends TestCase {
         $result = TypeIs::array( $result );
         self::assertContains( $stDir . '/visible.txt', $result );
         self::assertContains( $stDir . '/.hidden', $result );
+    }
+
+
+    public function testGlobWildFifo() : void {
+        $stDir = $this->tempDir();
+        $stFifo = $stDir . '/test.fifo';
+        posix_mkfifo( $stFifo, 0600 );
+        self::assertSame( Error::PATH_IS_WEIRD, Helper::globWild( $stFifo ) );
     }
 
 
@@ -477,6 +490,22 @@ class HelperTest extends TestCase {
         self::assertTrue( Helper::isPatternSafe( '*.txt' ) );
         self::assertTrue( Helper::isPatternSafe( 'file?.log' ) );
         self::assertTrue( Helper::isPatternSafe( 'file[0-9].txt' ) );
+    }
+
+
+    public function testIsPatternSafeEmptyComponents() : void {
+        # Empty components from leading/trailing/multiple slashes should be skipped.
+        self::assertTrue( Helper::isPatternSafe( '/a//b/' ) );
+    }
+
+
+    public function testIsPatternSafeRejectsDot() : void {
+        self::assertFalse( Helper::isPatternSafe( 'a/./b' ) );
+    }
+
+
+    public function testIsPatternSafeRejectsDoubleDot() : void {
+        self::assertFalse( Helper::isPatternSafe( 'a/../b' ) );
     }
 
 

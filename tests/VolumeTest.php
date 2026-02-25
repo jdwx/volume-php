@@ -122,11 +122,127 @@ final class VolumeTest extends TestCase {
     }
 
 
+    public function testComputeRelativeDestinationPathDirNoCreateFile() : void {
+        $vol = $this->makeVolume();
+        $vol->writeFile( '/dir/placeholder.txt', 'x' );
+        $result = $vol->computeRelativeDestinationPath( '/dir', '/src/file.txt',
+            i_bAllowCreateFile: false );
+        self::assertSame( Error::PATH_IS_DIRECTORY, $result );
+    }
+
+
+    public function testComputeRelativeDestinationPathFileThenChild() : void {
+        $vol = $this->makeVolume();
+        $vol->writeFile( '/file.txt', 'x' );
+        $result = $vol->computeRelativeDestinationPath( '/file.txt/child.txt' );
+        self::assertSame( Error::PATH_PARENT_NOT_DIRECTORY, $result );
+    }
+
+
+    public function testComputeRelativeDestinationPathMergedIsDirectory() : void {
+        $vol = $this->makeVolume();
+        # Create a directory where the merged filename would land.
+        mkdir( $vol->path() . '/dest' );
+        mkdir( $vol->path() . '/dest/file.txt' );
+        $result = $vol->computeRelativeDestinationPath( '/dest', '/src/file.txt' );
+        self::assertSame( Error::PATH_IS_DIRECTORY, $result );
+    }
+
+
+    public function testComputeRelativeDestinationPathMergedIsWeird() : void {
+        $vol = $this->makeVolume();
+        mkdir( $vol->path() . '/dest' );
+        posix_mkfifo( $vol->path() . '/dest/file.txt', 0600 );
+        $result = $vol->computeRelativeDestinationPath( '/dest', '/src/file.txt' );
+        self::assertSame( Error::PATH_IS_WEIRD, $result );
+    }
+
+
+    public function testComputeRelativeDestinationPathRootWithFilename() : void {
+        $vol = $this->makeVolume();
+        $result = $vol->computeRelativeDestinationPath( '/', '/src/path/file.txt' );
+        self::assertSame( '/file.txt', $result );
+    }
+
+
+    public function testComputeRelativeDestinationPathWeirdPath() : void {
+        $vol = $this->makeVolume();
+        posix_mkfifo( $vol->path() . '/weird', 0600 );
+        $result = $vol->computeRelativeDestinationPath( '/weird' );
+        self::assertSame( Error::PATH_IS_WEIRD, $result );
+    }
+
+
+    public function testComputeRelativeDestinationPathWeirdPathWithChild() : void {
+        $vol = $this->makeVolume();
+        symlink( '/tmp', $vol->path() . '/link' );
+        $result = $vol->computeRelativeDestinationPath( '/link/child.txt' );
+        self::assertSame( Error::PATH_PARENT_NOT_DIRECTORY, $result );
+    }
+
+
+    public function testIsPathValidMustExistNonexistent() : void {
+        $vol = $this->makeVolume();
+        self::assertSame( Error::PATH_NOT_FOUND, $vol->isPathValid( '/nonexistent', true ) );
+    }
+
+
+    public function testIsPathValidMustExistExists() : void {
+        $vol = $this->makeVolume();
+        $vol->writeFile( '/file.txt', 'x' );
+        self::assertSame( '/file.txt', $vol->isPathValid( '/file.txt', true ) );
+    }
+
+
     public function testConstructorCreatesDirectory() : void {
         $stBase = $this->basePath();
         $vol = new Volume( $stBase, 'new-vol' );
         unset( $vol );
         self::assertDirectoryExists( $stBase . '/new-vol' );
+    }
+
+
+    public function testCopyIn() : void {
+        $vol = $this->makeVolume();
+        $stSrc = $this->tempFile( 'copied-content' );
+        $result = $vol->copyIn( $stSrc, '/dest.txt' );
+        self::assertIsString( $result );
+        self::assertSame( 'copied-content', $vol->readFile( '/dest.txt' ) );
+    }
+
+
+    public function testCopyInDestinationExists() : void {
+        $vol = $this->makeVolume();
+        $stSrc = $this->tempFile( 'new-data' );
+        $vol->writeFile( '/existing.txt', 'old-data' );
+        $result = $vol->copyIn( $stSrc, '/existing.txt' );
+        self::assertSame( Error::PATH_IS_FILE, $result );
+    }
+
+
+    public function testCopyInIntoDirectory() : void {
+        $vol = $this->makeVolume();
+        $stSrc = $this->tempFile( 'dir-copy' );
+        $vol->writeFile( '/dir/placeholder.txt', 'x' );
+        $result = $vol->copyIn( $stSrc, '/dir' );
+        self::assertIsString( $result );
+        $stExpectedName = '/dir/' . basename( $stSrc );
+        self::assertSame( 'dir-copy', $vol->readFile( $stExpectedName ) );
+    }
+
+
+    public function testCopyInInvalidDestination() : void {
+        $vol = $this->makeVolume();
+        $stSrc = $this->tempFile( 'x' );
+        $result = $vol->copyIn( $stSrc, '/file name.txt' );
+        self::assertSame( Error::PATH_INVALID, $result );
+    }
+
+
+    public function testCopyInNonexistentSource() : void {
+        $vol = $this->makeVolume();
+        $result = $vol->copyIn( '/nonexistent/source.txt', '/dest.txt' );
+        self::assertSame( Error::PATH_NOT_FOUND, $result );
     }
 
 
@@ -226,6 +342,13 @@ final class VolumeTest extends TestCase {
     }
 
 
+    public function testListFifoReturnsWeird() : void {
+        $vol = $this->makeVolume();
+        posix_mkfifo( $vol->path() . '/weird', 0600 );
+        self::assertSame( Error::PATH_IS_WEIRD, $vol->list( '/weird' ) );
+    }
+
+
     public function testListNonexistentPath() : void {
         $vol = $this->makeVolume();
         self::assertSame( Error::PATH_NOT_FOUND, $vol->list( '/nope' ) );
@@ -236,6 +359,17 @@ final class VolumeTest extends TestCase {
         $vol = $this->makeVolume();
         $vol->destroy();
         self::assertSame( Error::DIRECTORY_IS_CLOSED, $vol->list( '/' ) );
+    }
+
+
+    public function testListRecursiveDoubleStarOnly() : void {
+        $vol = $this->makeVolume();
+        $vol->writeFile( '/a.txt', 'a' );
+        $vol->writeFile( '/sub/b.txt', 'b' );
+        $rList = $vol->list( '/**' );
+        $rList = TypeIs::array( $rList );
+        self::assertContains( '/a.txt', $rList );
+        self::assertContains( '/sub/b.txt', $rList );
     }
 
 
@@ -372,9 +506,27 @@ final class VolumeTest extends TestCase {
     }
 
 
+    public function testListWildcardRelativePathInvalid() : void {
+        $vol = $this->makeVolume();
+        self::assertSame( Error::PATH_INVALID, $vol->list( 'relative/*.txt' ) );
+    }
+
+
     public function testListWildcardRejectsShellMetacharacters() : void {
         $vol = $this->makeVolume();
         self::assertSame( Error::PATH_INVALID, $vol->list( '/$(cmd)' ) );
+    }
+
+
+    public function testListWildcardUnsafeBase() : void {
+        $vol = $this->makeVolume();
+        self::assertSame( Error::PATH_INVALID, $vol->list( '/a b/*.txt' ) );
+    }
+
+
+    public function testListWildcardUnsafePattern() : void {
+        $vol = $this->makeVolume();
+        self::assertSame( Error::PATH_INVALID, $vol->list( '/*;rm' ) );
     }
 
 
@@ -556,6 +708,38 @@ final class VolumeTest extends TestCase {
     }
 
 
+    public function testReadFileForFifo() : void {
+        $vol = $this->makeVolume();
+        posix_mkfifo( $vol->path() . '/weird', 0600 );
+        self::assertSame( Error::PATH_IS_WEIRD, $vol->readFile( '/weird' ) );
+    }
+
+
+    public function testReadFileInvalidPath() : void {
+        $vol = $this->makeVolume();
+        self::assertSame( Error::PATH_INVALID, $vol->readFile( '/file name.txt' ) );
+    }
+
+
+    public function testReadFileRelativePath() : void {
+        $vol = $this->makeVolume();
+        self::assertSame( Error::PATH_INVALID, $vol->readFile( 'relative.txt' ) );
+    }
+
+
+    public function testReadOnly() : void {
+        $vol = $this->makeVolume();
+        self::assertFalse( $vol->readOnly() );
+    }
+
+
+    public function testReadOnlyTrue() : void {
+        $stBase = $this->basePath();
+        $vol = new Volume( $stBase, 'ro-vol', bReadOnly: true );
+        self::assertTrue( $vol->readOnly() );
+    }
+
+
     public function testReadFile() : void {
         $vol = $this->makeVolume();
         $vol->writeFile( '/read.txt', 'read-me' );
@@ -671,6 +855,15 @@ final class VolumeTest extends TestCase {
     }
 
 
+    public function testRenameReturnsErrorForWeirdDestination() : void {
+        $vol = $this->makeVolume();
+        $vol->writeFile( '/source.txt', 'data' );
+        symlink( '/tmp', $vol->path() . '/link' );
+        $result = $vol->rename( '/source.txt', '/link' );
+        self::assertInstanceOf( Error::class, $result );
+    }
+
+
     public function testRenameReturnsErrorForExistingTarget() : void {
         $vol = $this->makeVolume();
         $vol->writeFile( '/a.txt', 'a' );
@@ -708,6 +901,19 @@ final class VolumeTest extends TestCase {
         $err = $vol->replaceFile( '/replace.txt', 'updated' );
         self::assertNull( $err );
         self::assertSame( 'updated', $vol->readFile( '/replace.txt' ) );
+    }
+
+
+    public function testReplaceFileForFifo() : void {
+        $vol = $this->makeVolume();
+        posix_mkfifo( $vol->path() . '/weird', 0600 );
+        self::assertSame( Error::PATH_IS_WEIRD, $vol->replaceFile( '/weird', 'data' ) );
+    }
+
+
+    public function testReplaceFileInvalidPath() : void {
+        $vol = $this->makeVolume();
+        self::assertSame( Error::PATH_INVALID, $vol->replaceFile( '/file name.txt', 'data' ) );
     }
 
 
@@ -785,10 +991,24 @@ final class VolumeTest extends TestCase {
     }
 
 
+    public function testWriteFileParentIsFile() : void {
+        $vol = $this->makeVolume();
+        $vol->writeFile( '/file.txt', 'x' );
+        $result = $vol->writeFile( '/file.txt/child.txt', 'data' );
+        self::assertSame( Error::PATH_PARENT_NOT_DIRECTORY, $result );
+    }
+
+
     public function testWriteFileOnDestroyedVolume() : void {
         $vol = $this->makeVolume();
         $vol->destroy();
         self::assertSame( Error::DIRECTORY_IS_CLOSED, $vol->writeFile( '/file.txt', 'data' ) );
+    }
+
+
+    public function testWriteFileRelativePath() : void {
+        $vol = $this->makeVolume();
+        self::assertSame( Error::PATH_INVALID, $vol->writeFile( 'relative.txt', 'data' ) );
     }
 
 
@@ -819,6 +1039,16 @@ final class VolumeTest extends TestCase {
     /** Create a persistent volume with a known identifier for testing. */
     private function makeVolume() : Volume {
         return new Volume( $this->basePath(), 'test-vol' );
+    }
+
+
+    /** Create a temporary file with the given content and track it for cleanup. */
+    private function tempFile( string $i_stContent ) : string {
+        $stPath = tempnam( sys_get_temp_dir(), 'jdwx-vol-src-' );
+        assert( is_string( $stPath ) );
+        file_put_contents( $stPath, $i_stContent );
+        $this->rCleanupPaths[] = $stPath;
+        return $stPath;
     }
 
 

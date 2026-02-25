@@ -220,9 +220,7 @@ final class Helper {
             return;
         }
         $rGlob = self::globWild( $i_stPath );
-        if ( ! is_array( $rGlob ) ) {
-            return;
-        }
+        assert( is_array( $rGlob ) );
         foreach ( $rGlob as $stFile ) {
             self::recursiveRemove( $stFile );
         }
@@ -302,9 +300,6 @@ final class Helper {
         }
         if ( $bPathIsWeird ) {
             return Error::PATH_IS_WEIRD;
-        }
-        if ( ! $bPathExists && $i_bMustExist ) {
-            return Error::PATH_NOT_FOUND;
         }
         return $stPath;
     }
